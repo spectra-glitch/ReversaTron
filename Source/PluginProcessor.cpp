@@ -196,7 +196,7 @@ void ReversatronAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 			{
 				if (frame < reversatronBuffer.getNumSamples())
 				{
-					buffer.setSample(channel, sample, reversatronBuffer.getSample(channel, reversatronBuffer.getNumSamples() - frame));
+					buffer.setSample(channel, sample, reversatronBuffer.getSample(channel, reversatronBuffer.getNumSamples() - frame - 1));
 					frame++;
 				}
 			}
