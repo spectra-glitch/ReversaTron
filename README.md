@@ -1,5 +1,5 @@
 # ReversaTron
-ReversaTron records icoming audio, then plays the recorded audio back in reverse. The input can be crossfaded into and out of the reversed platback.
+ReversaTron records incoming audio, then plays the recorded audio back in reverse. The input can be crossfaded into and out of the reversed playback.
 
 # Notes
 
