@@ -20,13 +20,15 @@ ReversatronAudioProcessor::ReversatronAudioProcessor()
                       #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
-                       )
+                       ),
+                       apvts(*this, nullptr, "Parameters", addParameters())
 #endif
 {
+	apvts.state = juce::ValueTree("Parameters");
+	seconds = 10.0f;
 	status = STOPPED;
 	frame = 0;
 	sampleRate = 44100.0;
-	seconds = 10;
 }
 
 ReversatronAudioProcessor::~ReversatronAudioProcessor()
@@ -165,6 +167,13 @@ void ReversatronAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     uint64_t numSamples = buffer.getNumSamples();
     uint64_t initialFrame = frame;
     
+    float crossfade = crossfadeTime;
+    double currentSampleRate = getSampleRate();
+    if ( ( crossfade * currentSampleRate ) > (reversatronBuffer.getNumSamples() / 2))
+    {
+        crossfade = (reversatronBuffer.getNumSamples() / 2) / currentSampleRate;
+    }
+    
     if (status == RECORDING)
     {
 		for (int channel = 0; channel < totalNumInputChannels; ++channel)
@@ -196,7 +205,28 @@ void ReversatronAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 			{
 				if (frame < reversatronBuffer.getNumSamples())
 				{
-					buffer.setSample(channel, sample, reversatronBuffer.getSample(channel, reversatronBuffer.getNumSamples() - frame - 1));
+                    if ( frame < (crossfade * currentSampleRate) )
+                    {
+						// We're within the fade time from the start of playback
+						// Fade out buffer, fade in reservatron buffer
+                        float gain = frame / (crossfade * currentSampleRate);
+                        float bufferSample = buffer.getSample(channel, sample) * (1.0f - gain);
+                        float reversatronBufferSample = reversatronBuffer.getSample(channel, reversatronBuffer.getNumSamples() - frame - 1) * gain;
+                        buffer.setSample(channel, sample, bufferSample + reversatronBufferSample);
+                    }
+                    else if (frame > (reversatronBuffer.getNumSamples() - (crossfade * currentSampleRate)))
+                    {
+						// We're within the fade time towards the end of playback
+						// Fade in buffer, fade out reservatron buffer
+                        float gain = (frame - (reversatronBuffer.getNumSamples() - (crossfade * currentSampleRate))) / (crossfade * currentSampleRate);
+                        float bufferSample = buffer.getSample(channel, sample) * gain;
+                        float reversatronBufferSample = reversatronBuffer.getSample(channel, reversatronBuffer.getNumSamples() - frame - 1) * (1.0f - gain);
+                        buffer.setSample(channel, sample, bufferSample + reversatronBufferSample);
+                    }
+					else
+                    {   
+                        buffer.setSample(channel, sample, reversatronBuffer.getSample(channel, reversatronBuffer.getNumSamples() - frame - 1));
+                    }
 					frame++;
 				}
 			}
@@ -234,15 +264,38 @@ void ReversatronAudioProcessor::getStateInformation (juce::MemoryBlock& destData
     // You should use this method to store your parameters in the memory block.
     // You could do that either as raw data, or use the XML or ValueTree classes
     // as intermediaries to make it easy to save and load complex data.
+    auto state = apvts.copyState();
+    std::unique_ptr<juce::XmlElement> xml (state.createXml());
+    copyXmlToBinary(*xml, destData);
 }
 
 void ReversatronAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     // You should use this method to restore your parameters from this memory block,
     // whose contents will have been created by the getStateInformation() call.
+    std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
+    if (xmlState.get() != nullptr)
+        if (xmlState->hasTagName (apvts.state.getType()))
+            apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
 }
 
-void ReversatronAudioProcessor::setupAudioBuffer(uint64_t timeInSeconds)
+juce::AudioProcessorValueTreeState::ParameterLayout ReversatronAudioProcessor::addParameters()
+{
+    juce::AudioProcessorValueTreeState::ParameterLayout paramLayout;
+    
+    paramLayout.add(std::make_unique<juce::AudioParameterFloat>("bufferLength", "Buffer Length", 0.5f, 500.0f, 10.0f));
+    paramLayout.add(std::make_unique<juce::AudioParameterFloat>("crossfadeTime", "Crossfade Time", 0.0f, 250.0f, 2.0f));
+    
+    return paramLayout;
+}
+
+AudioProcessorValueTreeState& ReversatronAudioProcessor::getApvts()
+{
+    return apvts;
+}
+
+
+void ReversatronAudioProcessor::setupAudioBuffer(float timeInSeconds)
 {
 	seconds = timeInSeconds;
 	sampleRate = getSampleRate();

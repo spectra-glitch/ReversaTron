@@ -53,7 +53,8 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
     
-    void setupAudioBuffer(const uint64_t timeInSeconds);
+    AudioProcessorValueTreeState& getApvts();
+    void setupAudioBuffer(const float timeInSeconds);
     
     enum RunningMode
     {
@@ -66,10 +67,14 @@ public:
 	uint32_t status;
     uint64_t frame;
     double sampleRate;
-    uint64_t seconds;
+    float crossfadeTime;
+    float seconds;
 
 private:
     //==============================================================================
+    
+    juce::AudioProcessorValueTreeState apvts;
+    juce::AudioProcessorValueTreeState::ParameterLayout addParameters();
     
     juce::AudioBuffer<float> reversatronBuffer;
     

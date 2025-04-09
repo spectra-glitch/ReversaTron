@@ -33,11 +33,16 @@ private:
     // access the processor object that created it.
     ReversatronAudioProcessor& audioProcessor;
     
+    juce::Slider bufferLengthSlider;
+    juce::Slider crossfadeTimeSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> bufferLengthSliderAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> crossfadeTimeSliderAttachment;
+    
+    juce::Label bufferLengthLabel;
+    juce::Label crossfadeTimeLabel;
     juce::TextButton startStop;
     juce::Label runningInfo;
     juce::Label timeInfo;
-    juce::Label secondsLabel;
-    juce::TextEditor timeInput;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ReversatronAudioProcessorEditor)
 };
